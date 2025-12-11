@@ -1,30 +1,39 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+const multer = require('multer');
+const path = require('path');
 
+const storage = multer.diskStorage({
+  destination: (req, file, callback) => {
+    callback(null, 'uploads/');
+  },
+  filename: (req, file, callback) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
+    callback(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage });
+
+app.use(express.json());
+
+// Base de dados em memória
 let events = [];
 
-// Validação simples
+// Validação
 const validateEvent = (payload) => {
   const { nome, localizacao, dataDoEvento, periodoInscricao } = payload;
-  if (!nome || !localizacao || !dataDoEvento || !periodoInscricao) {
-    return false;
-  }
-  return true;
+  return nome && localizacao && dataDoEvento && periodoInscricao;
 };
 
-// Criar evento (POST)
-app.post('/events', (req, res) => {
+// Rotas
+app.post('/events', upload.single('imagem'), (req, res) => {
   const payload = req.body;
+  const arquivo = req.file;
 
   if (!validateEvent(payload)) {
-    return res.status(400).json({
-      error: 'Campos obrigatórios: nome, localizacao, dataDoEvento, periodoInscricao'
-    });
+    return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
   }
 
   const id = events.length > 0 ? events[events.length - 1].id + 1 : 1;
@@ -32,85 +41,71 @@ app.post('/events', (req, res) => {
   const newEvent = {
     id,
     nome: payload.nome,
+    descricao: payload.descricao,
     localizacao: payload.localizacao,
     dataDoEvento: payload.dataDoEvento,
-    periodoInscricao: payload.periodoInscricao
+    periodoInscricao: payload.periodoInscricao,
+    imagem: arquivo ? arquivo.filename : null
   };
 
   events.push(newEvent);
-
   return res.status(201).json(newEvent);
 });
 
-// Listar todos os eventos (GET)
 app.get('/events', (req, res) => {
-  res.json(events);
+  return res.json(events);
 });
 
-// Obter evento por ID (GET)
 app.get('/events/:id', (req, res) => {
   const id = Number(req.params.id);
-  const event = events.find((e) => e.id === id);
+  const ev = events.find((e) => e.id === id);
 
-  if (!event) {
-    return res.status(404).json({ error: 'Evento não encontrado' });
-  }
+  if (!ev) return res.status(404).json({ error: 'Evento não encontrado.' });
 
-  res.json(event);
+  return res.json(ev);
 });
 
-// Atualizar evento (PUT)
-app.put('/events/:id', (req, res) => {
+app.put('/events/:id', upload.single('imagem'), (req, res) => {
   const id = Number(req.params.id);
-  const payload = req.body;
-
-  if (!validateEvent(payload)) {
-    return res.status(400).json({
-      error: 'Campos obrigatórios: nome, localizacao, dataDoEvento, periodoInscricao'
-    });
-  }
-
   const index = events.findIndex((e) => e.id === id);
 
   if (index === -1) {
-    return res.status(404).json({ error: 'Evento não encontrado' });
+    return res.status(404).json({ error: 'Evento não encontrado.' });
   }
 
-  const updated = {
-    ...events[index],
-    nome: payload.nome,
-    localizacao: payload.localizacao,
-    dataDoEvento: payload.dataDoEvento,
-    periodoInscricao: payload.periodoInscricao
+  const data = {
+    nome: req.body.nome,
+    descricao: req.body.descricao,
+    localizacao: req.body.localizacao,
+    dataDoEvento: req.body.dataDoEvento,
+    periodoInscricao: req.body.periodoInscricao,
+    imagem: req.file ? req.file.filename : events[index].imagem
   };
 
-  events[index] = updated;
+  events[index] = { id, ...data };
 
-  res.json(updated);
+  return res.json(events[index]);
 });
 
-// Deletar evento (DELETE)
 app.delete('/events/:id', (req, res) => {
   const id = Number(req.params.id);
-
   const index = events.findIndex((e) => e.id === id);
 
   if (index === -1) {
-    return res.status(404).json({ error: 'Evento não encontrado' });
+    return res.status(404).json({ error: 'Evento não encontrado.' });
   }
 
-  const deleted = events.splice(index, 1)[0];
-
-  res.json({ deleted });
+  const removed = events.splice(index, 1)[0];
+  return res.json({ removed });
 });
 
-// Rota inicial (health check)
 app.get('/', (req, res) => {
   res.send('Events API - online');
 });
 
-// Iniciar servidor
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+}
+
+module.exports = app;
