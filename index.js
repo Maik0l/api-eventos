@@ -23,8 +23,8 @@ let events = [];
 
 // Validação
 const validateEvent = (payload) => {
-  const { nome, localizacao, dataDoEvento, periodoInscricao } = payload;
-  return nome && localizacao && dataDoEvento && periodoInscricao;
+  const { nome, descricao, localizacao, dataDoEvento, periodoInscricao } = payload;
+  return nome && descricao && localizacao && dataDoEvento && periodoInscricao;
 };
 
 // Rotas
