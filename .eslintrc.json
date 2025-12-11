@@ -1,0 +1,19 @@
+{
+  "env": {
+    "commonjs": true,
+    "node": true,
+    "es2021": true
+  },
+  "extends": "airbnb-base",
+  "rules": {
+    "no-console": "off",
+    "comma-dangle": [
+      "error",
+      "never"
+    ],
+    "quotes": [
+      "error",
+      "single"
+    ]
+  }
+}
